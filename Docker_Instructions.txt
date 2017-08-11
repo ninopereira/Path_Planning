@@ -1,0 +1,100 @@
+
+sudo docker run -i -t -p 4567:4567 -v ~/Udacity_Self_Driving_Cars/Term2/PID_Control:/home/PID_Control ubuntu /bin/bash
+
+sudo service docker restart
+
+apt-get update 
+
+
+
+================== APENDIX ==============================
+
+------------------------
+Install Docker 1st time:
+------------------------
+
+apt-get update
+
+Let’s install Docker by installing the docker-io package:
+
+apt-get -y install docker.io
+
+Link and fix paths with the following two commands:
+
+ln -sf /usr/bin/docker.io /usr/local/bin/docker
+sed -i '$acomplete -F _docker docker' /etc/bash_completion.d/docker.io
+
+Finally, and optionally, let’s configure Docker to start when the server boots:
+
+update-rc.d docker.io defaults
+
+Step 2: Download a Docker Container
+Let’s begin using Docker! Download the fedora Docker image:
+
+docker pull ubuntu
+
+Step 3: Run a Docker Container
+Now, to setup a basic ubuntu container with a bash shell, we just run one command. docker run will run a command in a new container, -i attaches stdin and stdout, -t allocates a tty, and we’re using the standard ubuntu container.
+
+docker run -i -t ubuntu /bin/bash
+
+
+------------------------
+Install cmake in Docker:
+------------------------
+
+apt-get update; \
+apt-get -y upgrade
+
+apt-get -y install g++ cmake git subversion
+
+sudo apt-get install libssl-dev
+
+-----------------------
+Commit docker changes
+-----------------------
+Docker commit
+
+a) create container from ubuntu image and run a bash terminal.
+
+   $ docker run -i -t ubuntu:14.04 /bin/bash
+b) Inside the terminal install curl
+
+   # apt-get update
+   # apt-get install curl
+c) Exit the container terminal
+
+   # exit
+d) Take a note of your container id by executing following command :
+
+   $ docker ps -a
+e) save container as new image
+
+   $ docker commit <container_id> new_image_name:tag_name(optional)
+f) verify that you can see your new image with curl installed.
+   $ docker images           
+
+   $ docker run -it new_image_name:tag_name bash
+      # which curl
+        /usr/bin/curl
+
+----------------------------
+Save/Load a Docker image
+----------------------------
+To save image to any file path or shared nfs see following example.
+
+Get image id by doing:
+
+sudo docker images
+Say you have image with id "matrix-data"
+
+Save image with id:
+
+sudo docker save -o /home/matrix/matrix-data.tar matrix-data
+Copy image from path to any host Now import to your local docker using :
+
+sudo docker load -i <path to copied image file>
+Hope this make make more clear.
+
+
+
