@@ -240,6 +240,20 @@ int main() {
 
 
           	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
+                double dist_inc = 0.4;
+                for(int i = 0; i < 50; i++)
+                {
+                    double next_s = car_s+(i+1)*dist_inc;
+                    double next_d = 6; //each lane is 4m wide, we want to stay in the middle of the 2nd lane
+                    std::vector<double> xy_coord = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                    next_x_vals.push_back(xy_coord[0]);
+                    next_y_vals.push_back(xy_coord[1]);
+                    // go in a straight line
+//                    next_x_vals.push_back(car_x+(dist_inc*i)*cos(deg2rad(car_yaw)));
+//                    next_y_vals.push_back(car_y+(dist_inc*i)*sin(deg2rad(car_yaw)));
+                }
+
+                // END
           	msgJson["next_x"] = next_x_vals;
           	msgJson["next_y"] = next_y_vals;
 
