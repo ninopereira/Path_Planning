@@ -249,8 +249,49 @@ int main() {
 
 
           	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
-
-
+				// Get data from sensor_fusion
+				if (prev_size > 0)
+				{
+					car_s = end_path_s;
+				}
+				bool too_close = false;
+				
+				// find ref_v to use
+				ref_vel = 49.5;
+				for (int i = 0; i < sensor_fusion.size(); i++)
+				{
+					float d = sensor_fusion[i][6];
+					// if car is in my lane
+					if ((d < (2+4*lane+2)) && (d >(2+4*lane-2)))
+					{
+						double vx = sensor_fusion[i][3];
+						double vy = sensor_fusion[i][4];
+						double check_speed = sqrt(vx*vx+vy*vy);
+						double check_car_s = sensor_fusion[i][5];
+						// predict where this car will be in the future
+						check_car_s += (double)prev_size*.02*check_speed;
+						
+						// check s values greater than mine and s gap
+						const double min_distance = 30;
+						// if car is too close
+						if ((check_car_s>car_s) && ((check_car_s-car_s) < min_distance))
+						{
+							too_close = true;
+							std::cout << "Too close!" << std::endl;
+							// do something like match the car speed
+							const double mps2mph = 2.24;
+							if (check_speed*mps2mph < ref_vel)
+							{
+								//ref_vel/2.24); //2.24 to convert from mph to meters/s
+								std::cout << "Car speed = " << check_speed*mps2mph << std::endl;
+								ref_vel = check_speed*mps2mph;
+							}
+						}
+							
+					}
+						
+				}
+				
                 // Create a list of widely spaced (x,y) waypoints, evenly spaced at 30m
                 // Later we will interpolate these waypoints with a spline and fill it in with more points that control speed.
                 vector<double> ptsx;
@@ -260,7 +301,7 @@ int main() {
                 double ref_y = car_y;
                 double ref_yaw = deg2rad(car_yaw);
 
-                // if previous size is almost epty, use the car as starting reference
+                // if previous size is almost empty, use the car as starting reference
                 if(prev_size<2)
                 {
                     //Use two points that make the path tangent to the car
