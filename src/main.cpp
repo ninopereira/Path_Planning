@@ -179,7 +179,7 @@ int main() {
   int lane = 1;
 
   // reference velocity
-  double ref_vel = 49.5; //mph
+  double ref_vel = 0; //mph
 
   ifstream in_map_(map_file_.c_str(), ifstream::in);
 
@@ -257,7 +257,6 @@ int main() {
 				bool too_close = false;
 				
 				// find ref_v to use
-				ref_vel = 49.5;
 				for (int i = 0; i < sensor_fusion.size(); i++)
 				{
 					float d = sensor_fusion[i][6];
@@ -279,17 +278,26 @@ int main() {
 							too_close = true;
 							std::cout << "Too close!" << std::endl;
 							// do something like match the car speed
-							const double mps2mph = 2.24;
-							if (check_speed*mps2mph < ref_vel)
-							{
-								//ref_vel/2.24); //2.24 to convert from mph to meters/s
-								std::cout << "Car speed = " << check_speed*mps2mph << std::endl;
-								ref_vel = check_speed*mps2mph;
-							}
+//							const double mps2mph = 2.24;
+//							if (check_speed*mps2mph < ref_vel)
+//							{
+//								//ref_vel/2.24); //2.24 to convert from mph to meters/s
+//								std::cout << "Car speed = " << check_speed*mps2mph << std::endl;
+//								ref_vel = check_speed*mps2mph;
+//							}
 						}
 							
 					}
 						
+				}
+				
+				if (too_close)
+				{
+					ref_vel -= .224; // corresponds to 5 mph
+				}
+				else if (ref_vel < 49.5)
+				{
+					ref_vel += .224;
 				}
 				
                 // Create a list of widely spaced (x,y) waypoints, evenly spaced at 30m
