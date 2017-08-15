@@ -285,6 +285,10 @@ int main() {
 //								std::cout << "Car speed = " << check_speed*mps2mph << std::endl;
 //								ref_vel = check_speed*mps2mph;
 //							}
+                                                        if (lane>0)
+                                                        {
+                                                           lane =0;
+                                                        }
 						}
 							
 					}
