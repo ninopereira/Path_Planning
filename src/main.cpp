@@ -9,6 +9,9 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
 #include "spline.h"
+#include "cost_functions.hpp"
+#include "vehicle.h"
+//#include "helper_functions.hpp"
 
 using namespace std;
 
@@ -33,131 +36,6 @@ string hasData(string s) {
     return s.substr(b1, b2 - b1 + 2);
   }
   return "";
-}
-
-double distance(double x1, double y1, double x2, double y2)
-{
-	return sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
-}
-int ClosestWaypoint(double x, double y, vector<double> maps_x, vector<double> maps_y)
-{
-
-	double closestLen = 100000; //large number
-	int closestWaypoint = 0;
-
-	for(int i = 0; i < maps_x.size(); i++)
-	{
-		double map_x = maps_x[i];
-		double map_y = maps_y[i];
-		double dist = distance(x,y,map_x,map_y);
-		if(dist < closestLen)
-		{
-			closestLen = dist;
-			closestWaypoint = i;
-		}
-
-	}
-
-	return closestWaypoint;
-
-}
-
-int NextWaypoint(double x, double y, double theta, vector<double> maps_x, vector<double> maps_y)
-{
-
-	int closestWaypoint = ClosestWaypoint(x,y,maps_x,maps_y);
-
-	double map_x = maps_x[closestWaypoint];
-	double map_y = maps_y[closestWaypoint];
-
-	double heading = atan2( (map_y-y),(map_x-x) );
-
-	double angle = abs(theta-heading);
-
-	if(angle > pi()/4)
-	{
-		closestWaypoint++;
-	}
-
-	return closestWaypoint;
-
-}
-
-// Transform from Cartesian x,y coordinates to Frenet s,d coordinates
-vector<double> getFrenet(double x, double y, double theta, vector<double> maps_x, vector<double> maps_y)
-{
-	int next_wp = NextWaypoint(x,y, theta, maps_x,maps_y);
-
-	int prev_wp;
-	prev_wp = next_wp-1;
-	if(next_wp == 0)
-	{
-		prev_wp  = maps_x.size()-1;
-	}
-
-	double n_x = maps_x[next_wp]-maps_x[prev_wp];
-	double n_y = maps_y[next_wp]-maps_y[prev_wp];
-	double x_x = x - maps_x[prev_wp];
-	double x_y = y - maps_y[prev_wp];
-
-	// find the projection of x onto n
-	double proj_norm = (x_x*n_x+x_y*n_y)/(n_x*n_x+n_y*n_y);
-	double proj_x = proj_norm*n_x;
-	double proj_y = proj_norm*n_y;
-
-	double frenet_d = distance(x_x,x_y,proj_x,proj_y);
-
-	//see if d value is positive or negative by comparing it to a center point
-
-	double center_x = 1000-maps_x[prev_wp];
-	double center_y = 2000-maps_y[prev_wp];
-	double centerToPos = distance(center_x,center_y,x_x,x_y);
-	double centerToRef = distance(center_x,center_y,proj_x,proj_y);
-
-	if(centerToPos <= centerToRef)
-	{
-		frenet_d *= -1;
-	}
-
-	// calculate s value
-	double frenet_s = 0;
-	for(int i = 0; i < prev_wp; i++)
-	{
-		frenet_s += distance(maps_x[i],maps_y[i],maps_x[i+1],maps_y[i+1]);
-	}
-
-	frenet_s += distance(0,0,proj_x,proj_y);
-
-	return {frenet_s,frenet_d};
-
-}
-
-// Transform from Frenet s,d coordinates to Cartesian x,y
-vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> maps_x, vector<double> maps_y)
-{
-	int prev_wp = -1;
-
-	while(s > maps_s[prev_wp+1] && (prev_wp < (int)(maps_s.size()-1) ))
-	{
-		prev_wp++;
-	}
-
-	int wp2 = (prev_wp+1)%maps_x.size();
-
-	double heading = atan2((maps_y[wp2]-maps_y[prev_wp]),(maps_x[wp2]-maps_x[prev_wp]));
-	// the x,y,s along the segment
-	double seg_s = (s-maps_s[prev_wp]);
-
-	double seg_x = maps_x[prev_wp]+seg_s*cos(heading);
-	double seg_y = maps_y[prev_wp]+seg_s*sin(heading);
-
-	double perp_heading = heading-pi()/2;
-
-	double x = seg_x + d*cos(perp_heading);
-	double y = seg_y + d*sin(perp_heading);
-
-	return {x,y};
-
 }
 
 int main() {
@@ -203,7 +81,21 @@ int main() {
   	map_waypoints_dy.push_back(d_y);
   }
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy, &lane, &ref_vel](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  double s = 0.0; // initial s coordinate
+  double v = 0.0;  // initial velocity
+  double a = 0.0;  // initial acceleration
+
+  Road road;
+  road.lanes_available = 3;
+  road.lane_width = 4.0;
+  road.maps_x = map_waypoints_x;
+  road.maps_y = map_waypoints_y;
+
+  Vehicle my_car;
+
+  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
+              &map_waypoints_dx,&map_waypoints_dy, &lane, &ref_vel, &my_car, &road]
+              (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -229,6 +121,8 @@ int main() {
           	double car_d = j[1]["d"];
           	double car_yaw = j[1]["yaw"];
           	double car_speed = j[1]["speed"];
+                int id = 0;
+                my_car.UpdateMyCar(road, id, car_x, car_y, car_s, car_d, car_yaw, car_speed);
 
           	// Previous path data given to the Planner
           	auto previous_path_x = j[1]["previous_path_x"];
@@ -249,35 +143,68 @@ int main() {
 
 
           	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
-				// Get data from sensor_fusion
-				if (prev_size > 0)
-				{
-					car_s = end_path_s;
-				}
-				bool too_close = false;
-				
-				// find ref_v to use
-				for (int i = 0; i < sensor_fusion.size(); i++)
-				{
-					float d = sensor_fusion[i][6];
-					// if car is in my lane
-					if ((d < (2+4*lane+2)) && (d >(2+4*lane-2)))
-					{
-						double vx = sensor_fusion[i][3];
-						double vy = sensor_fusion[i][4];
-						double check_speed = sqrt(vx*vx+vy*vy);
-						double check_car_s = sensor_fusion[i][5];
-						// predict where this car will be in the future
-						check_car_s += (double)prev_size*.02*check_speed;
-						
-						// check s values greater than mine and s gap
-						const double min_distance = 30;
-						// if car is too close
-						if ((check_car_s>car_s) && ((check_car_s-car_s) < min_distance))
-						{
-							too_close = true;
-							std::cout << "Too close!" << std::endl;
-							// do something like match the car speed
+
+                /////////////////////////////////////////////////////////////////////////////
+                // Build Predictions map from sensor_fusion -  see Road advance
+                Predictions predictions;
+                // sensor_fusion = {id, x, y, vx, vy, s, d}
+                int unique_key = 0;
+                for (int i = 0; i < sensor_fusion.size(); i++)
+                {
+                        int v_id = sensor_fusion[i][0];
+                        double x = sensor_fusion[i][1];
+                        double y = sensor_fusion[i][2];
+                        double vx = sensor_fusion[i][3];
+                        double vy = sensor_fusion[i][4];
+                        double s = sensor_fusion[i][5];
+                        double d = sensor_fusion[i][6];
+                        double horizon = 10;
+                        double time_interval = 1;
+                        // Create a vehicle
+                        Vehicle new_car;
+                        new_car.InitFromFusion(road,v_id,x,y,vx,vy,s,d);
+                        Trajectory trajectory = new_car.generate_trajectory(time_interval,horizon);
+                        Prediction prediction = std::make_pair(v_id,trajectory);
+                        predictions.insert(std::make_pair(unique_key++,prediction)); // use and then increment unique_key
+                }
+
+                /////////////////////////////////////////////////////////////////////////////
+                // Update state of my vehicle - see get_next_state vehicle.cpp
+
+                State state = my_car.get_next_state(predictions);
+                my_car.realize_state(predictions);
+
+
+                /////////////////////////////////////////////////////////////////////////////
+                // Get data from sensor_fusion
+                if (prev_size > 0)
+                {
+                        car_s = end_path_s;
+                }
+                bool too_close = false;
+
+                // find ref_v to use
+                for (int i = 0; i < sensor_fusion.size(); i++)
+                {
+                        float d = sensor_fusion[i][6];
+                        // if car is in my lane
+                        if ((d < (2+4*lane+2)) && (d >(2+4*lane-2)))
+                        {
+                                double vx = sensor_fusion[i][3];
+                                double vy = sensor_fusion[i][4];
+                                double check_speed = sqrt(vx*vx+vy*vy);
+                                double check_car_s = sensor_fusion[i][5];
+                                // predict where this car will be in the future
+                                check_car_s += (double)prev_size*.02*check_speed;
+
+                                // check s values greater than mine and s gap
+                                const double min_distance = 30;
+                                // if car is too close
+                                if ((check_car_s>car_s) && ((check_car_s-car_s) < min_distance))
+                                {
+                                        too_close = true;
+                                        std::cout << "Too close!" << std::endl;
+                                        // do something like match the car speed
 //							const double mps2mph = 2.24;
 //							if (check_speed*mps2mph < ref_vel)
 //							{
@@ -285,24 +212,24 @@ int main() {
 //								std::cout << "Car speed = " << check_speed*mps2mph << std::endl;
 //								ref_vel = check_speed*mps2mph;
 //							}
-                                                        if (lane>0)
-                                                        {
-                                                           lane =0;
-                                                        }
-						}
-							
-					}
-						
-				}
-				
-				if (too_close)
-				{
-					ref_vel -= .224; // corresponds to 5 mph
-				}
-				else if (ref_vel < 49.5)
-				{
-					ref_vel += .224;
-				}
+                                        if (lane>0)
+                                        {
+                                           lane =0;
+                                        }
+                                }
+
+                        }
+
+                }
+
+                if (too_close)
+                {
+                        ref_vel -= .224; // corresponds to 5 mph
+                }
+                else if (ref_vel < 49.5)
+                {
+                        ref_vel += .224;
+                }
 				
                 // Create a list of widely spaced (x,y) waypoints, evenly spaced at 30m
                 // Later we will interpolate these waypoints with a spline and fill it in with more points that control speed.

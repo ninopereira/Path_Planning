@@ -1,0 +1,157 @@
+#ifndef VEHICLE_H
+#define VEHICLE_H
+
+#include <iostream>
+#include <random>
+#include <sstream>
+#include <fstream>
+#include <cmath>
+#include <vector>
+#include <map>
+#include <string>
+#include <iterator>
+#include "helper_functions.hpp"
+
+using namespace std;
+
+struct Snapshot {
+   int lane;
+   double s;
+   double v;
+   double a;
+   std::string state;
+   };
+
+using Full_Trajectory = std::vector <Snapshot>;
+
+//- predictions
+//A dictionary. The keys are ids of other vehicles and the values are arrays
+//where each entry corresponds to the vehicle's predicted location at the
+//corresponding timestep. The FIRST element in the array gives the vehicle's
+//current position. Example (showing a car with id 3 moving at 2 m/s):
+
+//{
+//  3 : [
+//    {"s" : 4, "lane": 0},
+//    {"s" : 6, "lane": 0},
+//    {"s" : 8, "lane": 0},
+//    {"s" : 10, "lane": 0},
+//  ]
+//  4 : [
+//    {"s" : 3, "lane": 1},
+//    {"s" : 6, "lane": 1},
+//    {"s" : 9, "lane": 1},
+//    {"s" : 12, "lane": 1},
+//  ]
+//}
+
+struct Road{
+  vector<double> maps_x; // useful info about road center
+  vector<double> maps_y; // useful info about road center
+  double lane_width;
+  int lanes_available;
+};
+
+class Vehicle {
+public:
+
+  struct collider{
+    bool collision ; // is there a collision?
+    double time; // time collision happens
+  };
+
+  int m_L = 1;// used to compare if vehicles in the same lane
+
+  double m_preferred_buffer = 10; // was 6: impacts "keep lane" behavior.
+
+  Road m_road;
+
+  int m_id;
+
+  int m_lane;
+
+  double m_x;
+
+  double m_y;
+
+  double m_yaw; // angle in rads
+
+  double m_v; // velocity
+
+  double m_vx; // x component of velocity
+
+  double m_vy; // y component of velocity
+
+  double m_a;  // acceleration
+
+  double m_s; // Frenet s coordinate
+
+  double m_d; // Frenet d coordinate
+
+  double m_target_speed;
+
+  double m_max_acceleration;
+
+  int m_goal_lane;
+
+  double m_goal_s;
+
+  string m_state;
+
+  /**
+  * Constructor
+  */
+  Vehicle();
+
+  /**
+  * Destructor
+  */
+  virtual ~Vehicle();
+
+  void InitFromFusion(Road road, int v_id, double x, double y, double vx, double vy, double s, double d);
+
+  void UpdateMyCar(Road& road, int& v_id, double& x, double& y, double& s, double& d, double& yaw, double& v);
+
+  void update_state(Predictions predictions);
+
+  void configure(vector<double> road_data);
+
+  std::string display() const;
+
+  void increment(double dt);
+
+  vector<int> state_at(int t);
+
+  bool collides_with(Vehicle other, double at_time);
+
+  collider will_collide_with(Vehicle other, int num_timesteps);
+
+  void realize_state(Predictions predictions);
+
+  void realize_constant_speed();
+
+  double max_accel_for_lane(Predictions predictions, int lane, double s);
+
+  void realize_keep_lane(Predictions predictions);
+
+  void realize_lane_change(Predictions predictions, std::string direction);
+
+  void realize_prep_lane_change(Predictions predictions, std::string direction);
+
+  Snapshot TakeSnapshot() const;
+
+  Full_Trajectory trajectory_for_state(State& state, Predictions predictions, int horizon=5);
+
+  //bool compare(std::pair<std::string,double> i, std::pair<std::string,double> j) ;
+
+  void restore_state_from_snapshot(Snapshot snapshot);
+
+  std::string get_next_state(Predictions predictions);
+
+  Position position_at(double t);
+
+  Trajectory generate_trajectory(double time_interval, int horizon = 10);
+
+};
+
+#endif
