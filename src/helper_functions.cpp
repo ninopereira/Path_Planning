@@ -1,38 +1,6 @@
-#ifndef HELPER_FUNCTIONS
-#define HELPER_FUNCTIONS
-
-#include <iostream>
-#include <cmath>
-#include <vector>
-#include <map>
-#include <string>
-#include <iterator>
-// helper functions
-
-using Vehicle_ID = int;
-using Unique_ID = const int;
-using Frenet_s = double;
-using Lane = int;
-using Position = std::pair<Frenet_s, Lane>;
-using Trajectory = std::vector <Position>;
-using Prediction = std::pair<Vehicle_ID,Trajectory>;
-using Predictions = std::map<Unique_ID,Prediction>; // using map as each vehicle has its own id
-
-using State = std::string;
-using Cost = double;
+#include "helper_functions.h"
 
 using namespace std;
-
-struct TrajectoryData {
-       int proposed_lane;
-       double avg_speed;
-       double max_acceleration;
-       double rms_acceleration;
-       double closest_approach;
-       double end_distance_to_goal;
-       int end_lanes_from_goal;
-       std::pair<bool,int> collides;
-       };
 
 double distance(double x1, double y1, double x2, double y2)
 {
@@ -159,43 +127,3 @@ vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> m
         return {x,y};
 
 }
-
-//// reviewed
-//Position get_position(double t, double x, double y, double vx, double vy,
-//                     vector<double>maps_x, vector<double> maps_y)
-//{
-//    /*
-//    Predicts state of vehicle in t seconds (assuming zero acceleration)
-//    */
-//    double x_new = x+vx*t;
-//    double y_new = y+vy*t;
-//    if (vx != 0)
-//    {
-//    double theta = std::atan2(vy,vx);
-
-//    std::vector<double> coordinates = getFrenet(x, y, theta, maps_x, maps_y);
-
-//    // TODO:
-//    // convert to Frenet and then
-//    int lane_width = 4; //hard coded in here for the moment!
-//    int lane = (int)(coordinates[1]) % lane_width;
-
-//    Position position = {coordinates[0], lane};
-//    return position;
-//}
-
-//// reviewed
-//Trajectory get_trajectory(double x, double y, double vx, double vy,
-//                               int horizon /*= 10*/, double time_interval,
-//                               vector<double>maps_x, vector<double> maps_y)
-//{
-//    Trajectory predicted_trajectory;
-//    for( int it = 0; it < horizon; ++it)
-//    {
-//        Position predicted_position = get_position(it*time_interval,x,y,vx,vy,maps_x,maps_y);
-//        predicted_trajectory.push_back(predicted_position);
-//    }
-//    return predicted_trajectory;
-//}
-
-#endif

@@ -10,9 +10,32 @@
 #include <map>
 #include <string>
 #include <iterator>
-#include "helper_functions.hpp"
+//#include "helper_functions.hpp"
 
 using namespace std;
+
+using Vehicle_ID = int;
+using Unique_ID = const int;
+using Frenet_s = double;
+using Lane = int;
+using Position = std::pair<Frenet_s, Lane>;
+using Trajectory = std::vector <Position>;
+using Prediction = std::pair<Vehicle_ID,Trajectory>;
+using Predictions = std::map<Unique_ID,Prediction>; // using map as each vehicle has its own id
+
+using State = std::string;
+using Cost = double;
+
+struct TrajectoryData {
+       int proposed_lane;
+       double avg_speed;
+       double max_acceleration;
+       double rms_acceleration;
+       double closest_approach;
+       double end_distance_to_goal;
+       int end_lanes_from_goal;
+       std::pair<bool,int> collides;
+       };
 
 struct Snapshot {
    int lane;

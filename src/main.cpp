@@ -9,9 +9,11 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
 #include "spline.h"
-#include "cost_functions.hpp"
+
 #include "vehicle.h"
+#include "helper_functions.h"
 //#include "helper_functions.hpp"
+//#include "cost_functions.hpp"
 
 using namespace std;
 

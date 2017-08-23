@@ -7,7 +7,10 @@
 #include <iostream>     // std::cout
 #include <algorithm>    // std::find
 #include <vector>       // std::vector
+#include "vehicle.h"
 #include "cost_functions.hpp"
+#include "helper_functions.h"
+//#include "cost_functions.hpp"
 
 
 // helper functions

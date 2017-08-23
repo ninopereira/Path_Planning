@@ -1,7 +1,6 @@
 #ifndef COST_FUNCTIONS
 #define COST_FUNCTIONS
 
-#include "vehicle.h"
 #include <cmath>
 #include <numeric>
 #include <cassert>
