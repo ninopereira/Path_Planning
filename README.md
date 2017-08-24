@@ -1,6 +1,159 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
    
+
+## Brief description
+
+In this project, the goal was to design a path planner that is able to create smooth, safe paths for the car to follow along a 3 lane highway with traffic. A successful path planner is able to keep inside its lane, avoid hitting other cars, and pass slower moving traffic all by using localization, sensor fusion, and map data.
+
+## Implementation
+
+The code compiles correctly without errors with cmake and make.
+Aditionally to this project I created a repository with a complete and improved implementation in C++ corresponding to the Python solution for Quiz problem on behaviour planning.
+See [here|https://github.com/ninopereira/BehaviourPlanning.git].
+ 
+
+1. The car is able to drive more than 4.32 miles without incidents. See an example video [here|https://youtu.be/NiU1F6JWqnI].
+
+Incidents include exceeding acceleration/jerk/speed, collision, and driving outside of the lanes.
+
+To avoid exceeding the acceleration a simple step by step increase of the reference velocity was implementes as:
+                if (too_close)
+                {
+                        ref_vel -= .224; // corresponds to 5 mph
+                }
+                else if (ref_vel < 49.5)
+                {
+                        ref_vel += .224;
+                }
+To avoid exceeding the speed limit, the maximum reference velocity was set to be 49.5. Note in the code above that reference velocity is only increased if less that the the speed limit (which is 49.5 - less than the actual 50 limit to accomodate some tolerance).
+
+In order to avoid jerk spline trajecories were used to compute a smooth path. Also, parts of the path not yet achieved by the car in the previous iteration were used as starting points for the new trajectory. This improves smoothness and reduces jerk.
+
+The car always drives according to the speed limit and never exceeds it. When the car in front is driving slowly we can get too close. In this situation we verify if we can change lanes. If not possible than the car slows down to avoid colliding with the car in front of us.
+
+                const double min_distance = 20;
+                // if car is too close
+                if ((check_car_s>car_s) && ((check_car_s-car_s) < min_distance))
+                {
+                        too_close = true;
+                        lane = my_car.m_lane;
+                }
+
+A cost function was implemented to verify according to the sensor fusion information if it is safe to change lanes and which lane is the best option at a given time.
+The cost function takes into account distance to the goal lane, the distance to other vehicles, average speed of each lane, the cost for changing lane and other.
+
+	double calculate_cost(Vehicle vehicle, Full_Trajectory trajectory, Predictions predictions, bool verbose=false)
+	{
+	    TrajectoryData trajectory_data = get_helper_data(vehicle, trajectory, predictions);
+	    double cost = 0.0;
+
+	    cost += distance_from_goal_lane(vehicle, trajectory, predictions, trajectory_data);
+	    cost += inefficiency_cost(vehicle, trajectory, predictions, trajectory_data);
+	    cost += collision_cost(vehicle, trajectory, predictions, trajectory_data);
+	    cost += buffer_cost(vehicle, trajectory, predictions, trajectory_data);
+	    cost += change_lane_cost(vehicle, trajectory, predictions, trajectory_data);
+	    return cost;
+	} 
+
+The decision to change lane is only taken when it's safe and making sure that:
+
+- the car doesn't have collisions;
+
+- the car stays close the middle of the lane except when overtaking other vehicles;
+
+- the car doesn't spend more than a 3 second length outside the lanes during changing lanes;
+
+- the car stays inside one of the 3 lanes on the right hand side of the road;
+
+- the car is able to change lanes
+
+- the car is able to smoothly change lanes when it makes sense to do so, such as when behind a slower moving car and an adjacent lane is clear of other traffic.
+
+
+## Reflection
+
+
+The code model for generating paths is composed of three different blocks:
+
+- Cost function (available as a separate file cost_functions.hpp)
+
+- State Machine to define the behaviour (get_next_state in Vehicle.cpp together will all the class functions)
+
+- Path Smoothing which is implemented in the main.cpp file
+
+
+### Cost function 
+
+The cost function calculates the cost associated to the vehicle being in each of the available lanes in a near future (horizon).
+It computes the cost taking several things into account as:
+- average speed of the cars in the lane
+- distances to closest car
+- collision detection by pre-computing a predicted path for changing lanes
+- cost for changing lanes
+
+It is important to emphasise here that the cost is computed for a time in future.
+For that we have to predict where will all the other cars be in the future.
+We calculate a predicted path for each vehicle in the future:
+
+	Predictions predictions;
+        // sensor_fusion = {id, x, y, vx, vy, s, d}
+        int unique_key = 0;
+        for (int i = 0; i < sensor_fusion.size(); i++)
+        {
+                int v_id = sensor_fusion[i][0];
+                double x = sensor_fusion[i][1];
+                double y = sensor_fusion[i][2];
+                double vx = sensor_fusion[i][3];
+                double vy = sensor_fusion[i][4];
+                double s = sensor_fusion[i][5];
+                double d = sensor_fusion[i][6];
+                double horizon = 10;
+                double time_interval = 1;
+                // Create a vehicle
+                Vehicle new_car;
+                new_car.InitFromFusion(road,v_id,x,y,vx,vy,s,d);
+                Trajectory trajectory = new_car.generate_trajectory(time_interval,horizon);
+                Prediction prediction = std::make_pair(v_id,trajectory);
+                predictions.insert(std::make_pair(unique_key++,prediction)); // use and then increment unique_key
+        }
+
+The predicted trajectory for each car was implemented with a straighforward exact computation. After computing the predicted path in cartesian coordinates, they were transformed to Frenet coordinates in order to determine which lane would the car be at that point in time. 
+A better approach would be using a Gaussian Naive Bayes implementation.
+There is scoope for improvement in this area, although pratical results were sufficiently good to meet the requirements for this project.  
+
+### Finite State Machine
+
+With those predictions we can compute a possible transition to a different state.
+ 
+        State state = my_car.get_next_state(predictions);
+        my_car.m_state = state;
+        my_car.realize_state(predictions);
+
+The state machine was implemented as suggested in the video classes and contains the following states:
+
+    CS,             // constant speed
+    KL,             // keep lane
+    LCL,            // lane change left
+    LCR,            // lane change right
+    PLCL,           // Prepare lane change left
+    PLCR            // Prepare lane change right
+
+### Path Smoothing
+
+Using previously calculated (but not used) path points together with the new calculated ones proved to be an excellent way of ensuring a 'continuous' smooth path between iterations. The spline function used here was a good choice as we don't have the issue or near vertical lines because we are using the vehicle local coordinates and the x coordinate points in the front direction.
+By converting waypoint map coordinates to vehicle local coordinates we simplify a lot the calculations and prevent breaking the spline as we avoid near vertical functions.
+
+Other smoothing functions could have been used as polynomial fitting which would also be suitable.
+
+It is worth mentioning that the Hybrid A* is not the most taylored algorithm for this particular situation. In highways we have a very sparce environment and it makes more sense to use a cost function associated with a fitting curve function. Hybrid A* works best in cluttered environments (e.g. parkinglots) where we have a limited number of choices and also in discretised spaces. 
+ 
+## Video Result Example:
+[Path Planning |https://youtu.be/NiU1F6JWqnI]
+
+
+# Instructions
+
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
 
@@ -135,5 +288,4 @@ that's just a guess.
 One last note here: regardless of the IDE used, every submitted project must
 still be compilable with cmake and make./
 
-## Results:
-https://youtu.be/NiU1F6JWqnI
+
