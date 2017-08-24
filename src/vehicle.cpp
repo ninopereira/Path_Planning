@@ -52,10 +52,10 @@ Vehicle::Vehicle() {
     m_lane = -1;
 
     m_state = "CS";
-    m_max_acceleration = -1;
-    m_target_speed = -1;
-    m_goal_lane = -1;
-    m_goal_s = -1;
+    m_max_acceleration = 10;
+    m_target_speed = 49.5;
+    m_goal_lane = 1;
+    m_goal_s = 100000;
 }
 
 void Vehicle::InitFromFusion(Road road, int v_id, double x, double y, double vx, double vy, double s, double d){
@@ -79,10 +79,10 @@ void Vehicle::InitFromFusion(Road road, int v_id, double x, double y, double vx,
     m_lane = (int)m_d % (int)road.lane_width;
 
     m_state = "CS";
-    m_max_acceleration = -1;
-    m_target_speed = -1;
-    m_goal_lane = -1;
-    m_goal_s = -1;
+    m_max_acceleration = 10;
+    m_target_speed = 49.5;
+    m_goal_lane = 1;
+    m_goal_s = 100000;
 }
 
 void Vehicle::UpdateMyCar(Road &road, int &v_id, double &x, double &y, double &s, double &d, double &yaw, double &v)
@@ -102,13 +102,13 @@ void Vehicle::UpdateMyCar(Road &road, int &v_id, double &x, double &y, double &s
         m_vy = v * sin(yaw); // assuming yaw in rads
         m_a = 0; // assuming zero acceleration;
 
-        m_lane = (int)m_d % (int)road.lane_width;
-
+        if ((int)road.lane_width!=0){
+            m_lane = (int)m_d / (int)road.lane_width;}
         m_state = "CS";
-        m_max_acceleration = -1;
-        m_target_speed = -1;
-        m_goal_lane = -1;
-        m_goal_s = -1;
+        m_max_acceleration = 10;
+        m_target_speed = 49.5;
+        m_goal_lane = 1;
+        m_goal_s = 100000;
 }
 
 Vehicle::~Vehicle() {}
@@ -150,36 +150,7 @@ void Vehicle::update_state(Predictions predictions) {
     }
 
     */
-	
-	
-	
-	
-    // state machine
-//    switch (hashit(m_state))
-//    {
-//        case CS:
-//            state = "KL"; // change state
-//            break;
-//        case KL:
-//            state = "KL"; // change state
-//            break;
-//        case PLCL:
-//            state = "KL"; // change state
-//            break;
-//        case LCL:
-//            state = "KL"; // change state
-//            break;
-//        case PLCR:
-//            state = "KL"; // change state
-//            break;
-//        case LCR:
-//            state = "KL"; // change state
-//            break;
-//        default:
-//            state = "CS"; // change state
-//            break;
-//    }
-	
+
     m_state = get_next_state(predictions);
 }
 
@@ -204,17 +175,18 @@ State Vehicle::get_next_state(Predictions predictions)
 
     vector<std::pair<State,Cost>> costs;
     for (auto state:states)
-	{
-        std::cout << "state = " << state << ", m_lane = " << m_lane << std::endl;
+    {
+
       Full_Trajectory full_trajectory = trajectory_for_state(state, predictions);
       double cost = calculate_cost(*this, full_trajectory, predictions);
 	  costs.push_back({state, cost});
-	}
+    }
 												 
 	 // gets the strategy (plan) with minimum cost
     auto it = std::min_element(costs.begin(), costs.end(),
 			  [](decltype(costs)::value_type& l, decltype(costs)::value_type& r) -> bool { return l.second < r.second; });
-	return (*it).first;
+
+    return (*it).first;
 }
 
 // reviewed
@@ -234,8 +206,9 @@ Full_Trajectory Vehicle::trajectory_for_state(State& state, Predictions predicti
         restore_state_from_snapshot(snapshot);
         m_state = state;
         realize_state(predictions_cpy);
-
-        assert (0 <= m_lane);
+        if (m_lane >= m_road.lanes_available){
+            m_lane = m_road.lanes_available-1;}
+        assert (m_lane>=0);
         assert (m_lane < m_road.lanes_available);
         increment((double)i);
         full_trajectory.push_back(TakeSnapshot());
@@ -397,6 +370,8 @@ void Vehicle::realize_constant_speed()
 // reviewed
 double Vehicle::max_accel_for_lane(Predictions predictions, int lane, double s)
 {
+    return 10; //BUG
+
     double delta_v_til_target = m_target_speed - m_v;
     double max_acc = std::min(m_max_acceleration, delta_v_til_target);
 
@@ -419,7 +394,7 @@ double Vehicle::max_accel_for_lane(Predictions predictions, int lane, double s)
     if(in_front.size() > 0)
     {
         // gets the trajectory closest to our vehicle
-        double min_s = 1000.0;// very large number
+        double min_s = 1000000.0;// very large number
         Trajectory leading;
         for(int i = 0; i < in_front.size(); i++)
         for (Trajectory& trajectory:in_front)
@@ -449,10 +424,10 @@ void Vehicle::realize_keep_lane(Predictions predictions) {
 
 // reviewed
 void Vehicle::realize_lane_change(Predictions predictions, std::string direction) {
-    int delta = -1;
-    if (direction.compare("R") == 0)
+    int delta = 1;
+    if (direction.compare("L") == 0)
     {
-    	delta = 1;
+        delta = -1;
     }
     m_lane += delta;
     int lane = m_lane;
@@ -463,7 +438,8 @@ void Vehicle::realize_lane_change(Predictions predictions, std::string direction
 // reviewed
 void Vehicle::realize_prep_lane_change(Predictions predictions, std::string direction)
 {
-	int delta = -1;
+    std::cout << "realize_prep_lane_change" <<std::endl;
+    int delta = -1;
     if (direction.compare("L") == 0)
     {
     	delta = 1;
@@ -535,6 +511,7 @@ void Vehicle::realize_prep_lane_change(Predictions predictions, std::string dire
             m_a = my_min_acc;
     	}
     }
+    std::cout << "END realize_prep_lane_change" <<std::endl;
 }
 
 // reviewed

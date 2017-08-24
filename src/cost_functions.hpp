@@ -33,8 +33,8 @@ double change_lane_cost(Vehicle vehicle, Full_Trajectory trajectory, Predictions
                 cost = COMFORT;}
         if (proposed_lanes < cur_lanes){
                 cost = -COMFORT;}
-        if (cost != 0){
-                std::cout << "!! \n \ncost for lane change is " << cost << std::endl;}
+//        if (cost != 0){
+//                std::cout << "!! \n \ncost for lane change is " << cost << std::endl;}
         return cost;
 }
 

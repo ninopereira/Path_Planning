@@ -174,6 +174,7 @@ int main() {
                 // Update state of my vehicle - see get_next_state vehicle.cpp
 
                 State state = my_car.get_next_state(predictions);
+                my_car.m_state = state;
                 my_car.realize_state(predictions);
 
 
@@ -200,23 +201,18 @@ int main() {
                                 check_car_s += (double)prev_size*.02*check_speed;
 
                                 // check s values greater than mine and s gap
-                                const double min_distance = 30;
+                                const double min_distance = 20;
                                 // if car is too close
                                 if ((check_car_s>car_s) && ((check_car_s-car_s) < min_distance))
                                 {
                                         too_close = true;
-                                        std::cout << "Too close!" << std::endl;
-                                        // do something like match the car speed
-//							const double mps2mph = 2.24;
-//							if (check_speed*mps2mph < ref_vel)
-//							{
-//								//ref_vel/2.24); //2.24 to convert from mph to meters/s
-//								std::cout << "Car speed = " << check_speed*mps2mph << std::endl;
-//								ref_vel = check_speed*mps2mph;
-//							}
+                                        //std::cout << "Too close!" << std::endl;
+                                        lane = my_car.m_lane;
                                         if (lane>0)
                                         {
-                                           lane =0;
+//                                           lane =0;
+//                                           ref_vel = my_car.m_v;
+
                                         }
                                 }
 
@@ -224,6 +220,8 @@ int main() {
 
                 }
 
+
+                std::cout << "my_car.m_lane = " << my_car.m_lane <<" Lane " << lane << std::endl;
                 if (too_close)
                 {
                         ref_vel -= .224; // corresponds to 5 mph
@@ -232,7 +230,8 @@ int main() {
                 {
                         ref_vel += .224;
                 }
-				
+//                lane =2;
+
                 // Create a list of widely spaced (x,y) waypoints, evenly spaced at 30m
                 // Later we will interpolate these waypoints with a spline and fill it in with more points that control speed.
                 vector<double> ptsx;
@@ -243,7 +242,7 @@ int main() {
                 double ref_yaw = deg2rad(car_yaw);
 
                 // if previous size is almost empty, use the car as starting reference
-                if(prev_size<2)
+                if(prev_size<5)
                 {
                     //Use two points that make the path tangent to the car
                     double prev_car_x = car_x - cos(car_yaw);
