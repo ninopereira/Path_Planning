@@ -11,7 +11,6 @@
 #include "cost_functions.hpp"
 #include "helper_functions.h"
 
-
 /**
  * Initializes Vehicle
  */
@@ -26,11 +25,9 @@ Vehicle::Vehicle() {
     m_a = -1;
     m_s = -1;
     m_d = -1;
-
     m_lane = -1;
 
-
-    m_max_acceleration = 10;
+    m_max_acceleration = 5;
     m_target_speed = 49.5*TO_METERS_PER_SECOND; //mph
     m_goal_s = 100000;
     m_state = "CS";
@@ -59,7 +56,7 @@ void Vehicle::InitFromFusion(Road road, int v_id, double x, double y, double vx,
     m_lane = (int)m_d / (int)road.lane_width;}
 
     m_state = "CS";
-    m_max_acceleration = 10;
+    m_max_acceleration = 5;
     m_target_speed = 49.5*TO_METERS_PER_SECOND;
     m_goal_lane = 1;
     m_goal_s = 100000;
@@ -85,7 +82,6 @@ void Vehicle::UpdateMyCar(Road &road, int &v_id, double &x, double &y, double &s
         if ((int)road.lane_width!=0){
             m_lane = (int)m_d / (int)road.lane_width;}
 
-        m_max_acceleration = 10; // in meters per seconds squared
         m_target_speed = 49.5*TO_METERS_PER_SECOND;
 
         m_goal_s = m_s+100000;
@@ -97,39 +93,6 @@ Vehicle::~Vehicle() {}
 
 // TODO - Implement this method.
 void Vehicle::update_state(Predictions predictions) {
-	/*
-    Updates the "state" of the vehicle by assigning one of the
-    following values to 'self.state':
-
-    "KL" - Keep Lane
-     - The vehicle will attempt to drive its target speed, unless there is 
-       traffic in front of it, in which case it will slow down.
-
-    "LCL" or "LCR" - Lane Change Left / Right
-     - The vehicle will IMMEDIATELY change lanes and then follow longitudinal
-       behavior for the "KL" state in the new lane.
-
-    "PLCL" or "PLCR" - Prepare for Lane Change Left / Right
-     - The vehicle will find the nearest vehicle in the adjacent lane which is
-       BEHIND itself and will adjust speed to try to get behind that vehicle.
-
-    INPUTS
-    - predictions 
-    A dictionary. The keys are ids of other vehicles and the values are arrays
-    where each entry corresponds to the vehicle's predicted location at the 
-    corresponding timestep. The FIRST element in the array gives the vehicle's
-    current position. Example (showing a car with id 3 moving at 2 m/s):
-
-    {
-      3 : [
-        {"s" : 4, "lane": 0},
-        {"s" : 6, "lane": 0},
-        {"s" : 8, "lane": 0},
-        {"s" : 10, "lane": 0},
-      ]
-    }
-
-    */
 
     Snapshot car_state = TakeSnapshot();
 
@@ -138,6 +101,7 @@ void Vehicle::update_state(Predictions predictions) {
 
     string state = car_state.state;
 
+    std::cout << "======================================" << state << std::endl;
     // simple FSM
     switch (hashit(state)){
     case CS:
@@ -149,20 +113,18 @@ void Vehicle::update_state(Predictions predictions) {
         break;
     case KL:
         realize_state(predictions);
-        if (m_v > 30*TO_METERS_PER_SECOND && m_v <40*TO_METERS_PER_SECOND)
+        if (m_v > 30*TO_METERS_PER_SECOND)// && m_v <40*TO_METERS_PER_SECOND)
         {
             switch (hashit(desired_state)){
             case LCL:
                 m_state = "LCL";
                 realize_state(predictions);
                 m_goal_lane = m_lane;
-//                std::cout << "m_goal_lane = " << m_goal_lane << " car_state.lane = " << car_state.lane << std::endl;
                 break;
             case LCR:
                 m_state = "LCR";
                 realize_state(predictions);
                 m_goal_lane = m_lane;
-//                std::cout << "m_goal_lane = " << m_goal_lane << " car_state.lane = " << car_state.lane << std::endl;
                 break;
             default:
                 break;
@@ -177,7 +139,6 @@ void Vehicle::update_state(Predictions predictions) {
         }
         m_lane = m_goal_lane;
         m_a = max_accel_for_lane(predictions,car_state.lane,car_state.s);
-//        realize_state(predictions);
         break;
     case LCR:
 
@@ -187,7 +148,6 @@ void Vehicle::update_state(Predictions predictions) {
         }
         m_lane = m_goal_lane;
         m_a = max_accel_for_lane(predictions,car_state.lane,car_state.s);
-//        realize_state(predictions);
         break;
     case PLCL:
         m_state = "KL";
@@ -202,10 +162,6 @@ void Vehicle::update_state(Predictions predictions) {
         realize_state(predictions);
         break;
     }
-
-//    std::cout << " desired_state =" << desired_state << " m_state = "<< m_state << std::endl;
-
-
 }
 
 // reviewed
@@ -231,14 +187,12 @@ State Vehicle::get_next_state(Predictions predictions)
     for (auto state:states)
     {
 
-      std::cout << "| ST=" << state ;
-      Full_Trajectory full_trajectory = trajectory_for_state(state, predictions);
-      double cost = calculate_cost(*this, full_trajectory, predictions,state);
+      if (DEBUG_COST){ std::cout << "| ST=" << state ;}
+//      Full_Trajectory full_trajectory = trajectory_for_state(state, predictions);
+
+      double cost = calculate_cost(*this, predictions, state);
           costs.push_back({state, cost});
-//      std::cout << "cost =  " << costs << std::endl;
-//        std::cout << std::endl;
     }
-//    std:cout << "======================================================================" << std::endl;
 												 
     // gets the strategy (plan) with minimum cost
     auto it = std::min_element(costs.begin(), costs.end(),
@@ -273,10 +227,9 @@ Full_Trajectory Vehicle::trajectory_for_state(State& state, Predictions predicti
         full_trajectory.push_back(TakeSnapshot());
 
         // need to remove first prediction for each vehicle.
-        for (Predictions::iterator itr = predictions_cpy.begin(); itr != predictions_cpy.end(); itr++)
+        for (auto prediction : predictions_cpy)
         {
-            Prediction prediction = itr->second;
-            Trajectory traj_itr = prediction.second;
+            Trajectory traj_itr = std::get<2>(prediction);
 
             // DANGER: this is why we require a complete copy of the Predictions
             // to be passed as the argument and not the actual Predictions otherwise
@@ -312,20 +265,6 @@ void Vehicle::restore_state_from_snapshot(Snapshot snapshot)
 }
 
 // reviewed
-void Vehicle::configure(vector<double> road_data)
-{
-	/*
-    Called by simulator before simulation begins. Sets various
-    parameters which will impact the ego vehicle. 
-    */
-    m_target_speed = road_data[0];
-    m_road.lanes_available = road_data[1];
-    m_goal_s = road_data[2];
-    m_goal_lane = road_data[3];
-    m_max_acceleration = road_data[4]; // this should be vehicle data!
-}
-
-// reviewed
 std::string Vehicle::display() const
 {
 	ostringstream oss;
@@ -358,55 +297,12 @@ void Vehicle::increment(int iter /*= 1*/)
     }
 }
 
-//// reviewed
-//Position Vehicle::position_at(double t)
-//{
-//	/*
-//    Predicts state of vehicle in t seconds (assuming constant acceleration)
-//    */
-//    double s = m_s + m_v * t + m_a * t * t / 2;
-//    double v = m_v + m_a * t;
-//    Position position = {s, m_lane};
-//    return position;
-//}
-
-// reviewed
-bool Vehicle::collides_with(Vehicle other, double time_t)
-{
-	/*
-    Simple collision detection.
-    */
-    Position vehicle_1 = position_at(time_t);
-    Position vehicle_2 = other.position_at(time_t);
-    return (vehicle_1.first == vehicle_2.first) && (abs(vehicle_1.second-vehicle_2.second) <= m_L);
-}
-
-// reviewed
-Vehicle::collider Vehicle::will_collide_with(Vehicle other, int num_timesteps)
-{
-    Vehicle::collider collider_temp;
-    collider_temp.collision = false;
-    collider_temp.time = -1;
-
-    for (int t = 0; t < num_timesteps+1; t++)
-    {
-        if( collides_with(other, (double)t) )
-        {
-            collider_temp.collision = true;
-            collider_temp.time = (double)t;
-            return collider_temp;
-        }
-    }
-    return collider_temp;
-}
 
 // reviewed
 void Vehicle::realize_state(Predictions predictions)
 {
-	/*
-    Given a state, realize it by adjusting acceleration and lane.
-    Note - lane changes happen instantaneously.
-    */
+    //Given a state, realize it by adjusting acceleration and lane.
+
     string state = m_state;
     if(state.compare("CS") == 0)
     {
@@ -447,10 +343,13 @@ double Vehicle::max_vel_for_lane(Predictions predictions, int lane, double s)
     double max_vel = m_target_speed;
     std::vector<Trajectory> in_front;
     // gets trajectories which are in the given lane and only for vehicles ahead of us
-    for (Predictions::iterator itr = predictions.begin(); itr != predictions.end(); ++itr)
+    for (Prediction prediction : predictions)
     {
-        Prediction prediction = itr->second;
-        Trajectory trajectory = prediction.second;
+        int v_id = std::get<0>(prediction);
+        if (v_id==MY_ID){
+            continue;
+        }
+        Trajectory trajectory = std::get<2>(prediction);
 
         // trajectory: first is s, second is lane
         if((trajectory[0].second == lane) && (trajectory[0].first > s))
@@ -479,9 +378,7 @@ double Vehicle::max_vel_for_lane(Predictions predictions, int lane, double s)
         // leading contains the trajectory of the vehicle right "ahead of us" for the given lane
         double next_car_vel = leading[2].first-leading[1].first; // next distance s of that vehicle
         max_vel = std::min(max_vel, next_car_vel); // this assumes we have one iteration/second;
-//        std::cout << "Car ahead speed " << next_pos-m_s << " meters away " << std::endl;
-//        std::cout << "available_room = "<< available_room <<" max_acc = " << max_acc << std::endl;
-    }
+   }
     return max_vel;
 }
 
@@ -491,16 +388,15 @@ double Vehicle::max_accel_for_lane(Predictions predictions, int lane, double s)
 {
     double delta_v_til_target = m_target_speed - m_v;
     double max_acc = std::min(m_max_acceleration, delta_v_til_target);
-//    std::cout << "delta_v_til_target = " << delta_v_til_target <<
-//                 " m_max_acceleration = " << m_max_acceleration <<
-//                " max_acc = " << max_acc << std::endl;
     std::vector<Trajectory> in_front;
     // gets trajectories which are in the given lane and only for vehicles ahead of us
-    for (Predictions::iterator itr = predictions.begin(); itr != predictions.end(); ++itr)
+    for (Prediction prediction : predictions)
     {
-        Prediction prediction = itr->second;
-//        int& vehicle_id = prediction->first;
-        Trajectory trajectory = prediction.second;
+        int v_id = std::get<0>(prediction);
+        if (v_id==MY_ID){
+            continue;
+        }
+        Trajectory trajectory = std::get<2>(prediction);
 
         // trajectory: first is s, second is lane
         if((trajectory[0].second == lane) && (trajectory[0].first > s))
@@ -532,13 +428,7 @@ double Vehicle::max_accel_for_lane(Predictions predictions, int lane, double s)
         double separation_next = next_pos - my_next_pos;
         double available_room = separation_next - m_preferred_buffer;
         max_acc = std::min(max_acc, available_room); // this assumes we have one iteration/second;
-//        std::cout << "Car ahead is " << next_pos-m_s << " meters away " << std::endl;
-//        std::cout << "available_room = "<< available_room <<" max_acc = " << max_acc << std::endl;
-    }
-//    else
-//    {
-//        std::cout << "No car ahead! Should go at full speed!" << std::endl;
-//    }
+   }
     return max_acc;
 }
 
@@ -563,7 +453,6 @@ void Vehicle::realize_lane_change(Predictions predictions, std::string direction
 // reviewed
 void Vehicle::realize_prep_lane_change(Predictions predictions, std::string direction)
 {
-    std::cout << "realize_prep_lane_change" <<std::endl;
     int delta = -1;
     if (direction.compare("L") == 0)
     {
@@ -573,11 +462,13 @@ void Vehicle::realize_prep_lane_change(Predictions predictions, std::string dire
 
     vector<Trajectory> at_behind;
     //get vehicles behind us in the target lane
-    for(Predictions::iterator itr = predictions.begin(); itr != predictions.end(); ++itr)
+    for (Prediction prediction : predictions)
     {
-        Prediction prediction = itr->second;
-        // int vehicle_id = prediction->first;
-        Trajectory trajectory = prediction.second;
+        int v_id = std::get<0>(prediction);
+        if (v_id==MY_ID){
+            continue;
+        }
+        Trajectory trajectory = std::get<2>(prediction);
 
         if((trajectory[0].second == target_lane) && (trajectory[0].first <= m_s))
         {

@@ -1,6 +1,9 @@
 #ifndef VEHICLE_H
 #define VEHICLE_H
 
+#define DEBUG_COST 0
+#define MY_ID 9999
+
 #include <iostream>
 #include <random>
 #include <sstream>
@@ -10,22 +13,32 @@
 #include <map>
 #include <string>
 #include <iterator>
+#include <tuple>
 
 #define TO_METERS_PER_SECOND 0.44704
 #define TO_MILES_PER_HOUR 2.23693629
 
 using namespace std;
 
+using State = std::string;
+
+struct Snapshot {
+   int lane;
+   double s;
+   double v;
+   double a;
+   State state;
+   };
+
 using Vehicle_ID = int;
-using Unique_ID = const int;
 using Frenet_s = double;
 using Lane = int;
 using Position = std::pair<Frenet_s, Lane>;
-using Trajectory = std::vector <Position>;
-using Prediction = std::pair<Vehicle_ID,Trajectory>;
-using Predictions = std::map<Unique_ID,Prediction>; // using map as each vehicle has its own id
+using Trajectory = std::vector<Position>;
+using Prediction = std::tuple<Vehicle_ID,Snapshot,Trajectory>;
+using Predictions = std::vector<Prediction>; // using map as each vehicle has its own id
 
-using State = std::string;
+
 using Cost = double;
 
 struct TrajectoryData {
@@ -40,14 +53,14 @@ struct TrajectoryData {
        std::pair<bool,int> collides;
        };
 
-struct Snapshot {
-   int lane;
-   double s;
-   double v;
-   double a;
-   std::string state;
-   };
-
+struct NewTrajectoryData {
+        State state;
+        double v_front;
+        double v_behind;
+        double gap_front;
+        double gap_behind;
+        int change_lane;
+       };
 
 using Full_Trajectory = std::vector <Snapshot>;
 
