@@ -5,14 +5,17 @@
 #include <numeric>
 #include <cassert>
 
-// priority levels for costs
-#define COLLISION   std::pow(10, 6)
-#define DANGER      std::pow(10, 5)
-#define REACH_GOAL  std::pow(10, 5)
-#define COMFORT     std::pow(10, 4)
-#define EFFICIENCY  std::pow(10, 2)
+#include "helper_functions.h"
 
-#define DESIRED_BUFFER 1.5 //s # timesteps
+// priority levels for costs
+#define COLLISION   10000//std::pow(10, 6)
+#define DANGER      100//std::pow(10, 5)
+#define REACH_GOAL  0//std::pow(10, 5)
+#define COMFORT     1000//std::pow(10, 5)
+#define EFF_VEL     200
+#define EFF_ACCEL  0//std::pow(10, 2)
+
+#define DESIRED_BUFFER 1.5 //1.5s # timesteps
 #define PLANNING_HORIZON 2
 
 using Lane = int;
@@ -22,20 +25,30 @@ using Lane = int;
 
 double change_lane_cost(Vehicle vehicle, Full_Trajectory trajectory, Predictions predictions, TrajectoryData data)
 {
-        /*
+    // Penalizes any change of lane specially at high speed
+    double cost =0;
+    if (hashit(data.state)!=KL)
+    {
+        cost = COMFORT*(abs(vehicle.m_v)/vehicle.m_target_speed);
+    }
+    std::cout << " conf=" <<cost;
+    return cost;
+
+    /*
         Penalizes lane changes AWAY from the goal lane and rewards
         lane changes TOWARDS the goal lane.
         */
-        int proposed_lanes = data.end_lanes_from_goal;
-        int cur_lanes = trajectory[0].lane; // get lane
-        double cost = 0;
-        if (proposed_lanes > cur_lanes){
-                cost = COMFORT;}
-        if (proposed_lanes < cur_lanes){
-                cost = -COMFORT;}
-//        if (cost != 0){
-//                std::cout << "!! \n \ncost for lane change is " << cost << std::endl;}
-        return cost;
+//        int proposed_lanes = data.end_lanes_from_goal;
+//        int cur_lanes = trajectory[0].lane; // get lane
+//        double cost = 0;
+//        if (proposed_lanes > cur_lanes){
+//                cost = COMFORT;}
+//        if (proposed_lanes < cur_lanes){
+//                cost = -COMFORT;}
+////        if (cost != 0){
+////                std::cout << "!! \n \ncost for lane change is " << cost << std::endl;}
+////        std::cout << " COMFORTcost =  " << cost ;
+//        return cost;
 }
 
 double distance_from_goal_lane(Vehicle vehicle, Full_Trajectory trajectory, Predictions predictions, TrajectoryData data)
@@ -55,8 +68,17 @@ double inefficiency_cost(Vehicle vehicle, Full_Trajectory trajectory, Prediction
         double target_speed = vehicle.m_target_speed;
         double diff = target_speed - speed;
         double pct = float(diff) / target_speed;
-        double multiplier = std::pow(pct,2.0);
-        return multiplier * EFFICIENCY;
+//        double multiplier = std::pow(pct,2.0);
+        std::cout << " v=" << pct * EFF_VEL ;
+        return pct * EFF_VEL;
+}
+
+double accel_cost(Vehicle vehicle, Full_Trajectory trajectory, Predictions predictions, TrajectoryData data)
+{
+        double accel = data.max_acceleration;
+//        double multiplier = std::pow(accel,2.0);
+        std::cout << " a=" << (-accel) * EFF_ACCEL ;
+        return (-accel) * EFF_ACCEL;
 }
 
 double collision_cost(Vehicle vehicle, Full_Trajectory trajectory, Predictions predictions, TrajectoryData data)
@@ -89,25 +111,36 @@ double buffer_cost(Vehicle vehicle, Full_Trajectory trajectory, Predictions pred
     return multiplier * DANGER;
 }
 
-TrajectoryData get_helper_data(Vehicle vehicle, Full_Trajectory trajectory, Predictions predictions); // forward declaration
+TrajectoryData get_helper_data(Vehicle vehicle, Full_Trajectory trajectory, Predictions predictions, State state); // forward declaration
 
-double calculate_cost(Vehicle vehicle, Full_Trajectory trajectory, Predictions predictions, bool verbose=false)
+double calculate_cost(Vehicle vehicle, Full_Trajectory trajectory, Predictions predictions, State state, bool verbose=false)
 {
-    TrajectoryData trajectory_data = get_helper_data(vehicle, trajectory, predictions);
+    TrajectoryData trajectory_data = get_helper_data(vehicle, trajectory, predictions,state);
+
     double cost = 0.0;
 
-    cost += distance_from_goal_lane(vehicle, trajectory, predictions, trajectory_data);
+//    std::cout << " avg speed = " << trajectory_data.avg_speed << " ";
+    trajectory_data.max_acceleration = vehicle.max_accel_for_lane(predictions,trajectory[1].lane, trajectory[1].s);
+//    std::cout << " max_accel = " << trajectory_data.max_acceleration << " ";
+
+    double max_vel = vehicle.max_vel_for_lane(predictions,trajectory[1].lane, trajectory[1].s);
+//    std::cout << "max_vel = " << max_vel ;
+    trajectory_data.avg_speed = max_vel;
+    cost += accel_cost(vehicle, trajectory, predictions, trajectory_data);
+//    cost += distance_from_goal_lane(vehicle, trajectory, predictions, trajectory_data);
     cost += inefficiency_cost(vehicle, trajectory, predictions, trajectory_data);
     cost += collision_cost(vehicle, trajectory, predictions, trajectory_data);
     cost += buffer_cost(vehicle, trajectory, predictions, trajectory_data);
     cost += change_lane_cost(vehicle, trajectory, predictions, trajectory_data);
+
+    std::cout << " t=" << cost;
     return cost;
 }
 
 bool check_collision(Snapshot snapshot, double s_previous, double s_now); // forward declaration
 Predictions filter_predictions_by_lane(Predictions predictions, Lane lane); // forward declaration
 
-TrajectoryData get_helper_data(Vehicle vehicle, Full_Trajectory trajectory, Predictions predictions)
+TrajectoryData get_helper_data(Vehicle vehicle, Full_Trajectory trajectory, Predictions predictions, State state)
 {
 
     Snapshot current_snapshot = trajectory[0];
@@ -118,7 +151,7 @@ TrajectoryData get_helper_data(Vehicle vehicle, Full_Trajectory trajectory, Pred
     int end_lanes_from_goal = abs(vehicle.m_goal_lane - last.lane);
     double dt = float(trajectory.size());
     int proposed_lane = first.lane;
-    double avg_speed = (last.s - current_snapshot.s) / dt;
+    //double avg_speed = (last.s - current_snapshot.s) / dt;
 
     // initialize a bunch of variables
     std::vector<double> accels;
@@ -127,6 +160,17 @@ TrajectoryData get_helper_data(Vehicle vehicle, Full_Trajectory trajectory, Pred
     Snapshot last_snap = trajectory[0];
     Predictions filtered_pred = filter_predictions_by_lane(predictions, proposed_lane);
 
+
+    double sum_speeds_lane = 0;
+    int count = 0;
+    for (Predictions::iterator pred_itr = filtered_pred.begin(); pred_itr != filtered_pred.end(); ++pred_itr)
+    {
+        Prediction prediction = pred_itr->second;
+        Trajectory list_positions = prediction.second;
+        sum_speeds_lane += list_positions[1].first-list_positions[0].first;
+        ++count;
+    }
+    double avg_speed = sum_speeds_lane/count;
     // for i, snapshot in enumerate(trajectory[1:PLANNING_HORIZON+1], 1): // enumerate starts counting from 1
 
     // the for cycle starts at 1, as 0 is the current position
@@ -180,6 +224,7 @@ TrajectoryData get_helper_data(Vehicle vehicle, Full_Trajectory trajectory, Pred
     double rms_acceleration = sum_of_elems / num_accels;
 
     TrajectoryData trajectory_data;
+    trajectory_data.state = state;
     trajectory_data.proposed_lane = proposed_lane;
     trajectory_data.avg_speed = avg_speed;
     trajectory_data.max_acceleration = max_accel;

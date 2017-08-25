@@ -2,6 +2,17 @@
 
 using namespace std;
 
+string_code hashit (std::string const& inString) {
+
+    if (inString == "CS") return CS;
+    if (inString == "KL") return KL;
+    if (inString == "LCL") return LCL;
+    if (inString == "LCR") return LCR;
+    if (inString == "PLCL") return PLCL;
+    if (inString == "PLCR") return PLCR;
+    return CS;
+}
+
 double distance(double x1, double y1, double x2, double y2)
 {
         return sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));

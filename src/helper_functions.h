@@ -7,7 +7,17 @@
 #include <map>
 #include <string>
 #include <iterator>
-// helper functions
+
+enum string_code {
+    CS,             // constant speed
+    KL,             // keep lane
+    LCL,            // lane change left
+    LCR,            // lane change right
+    PLCL,           // Prepare lane change left
+    PLCR            // Prepare lane change right
+};
+
+string_code hashit (std::string const& inString);
 
 using namespace std;
 

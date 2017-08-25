@@ -10,7 +10,9 @@
 #include <map>
 #include <string>
 #include <iterator>
-//#include "helper_functions.hpp"
+
+#define TO_METERS_PER_SECOND 0.44704
+#define TO_MILES_PER_HOUR 2.23693629
 
 using namespace std;
 
@@ -27,6 +29,7 @@ using State = std::string;
 using Cost = double;
 
 struct TrajectoryData {
+        State state;
        int proposed_lane;
        double avg_speed;
        double max_acceleration;
@@ -44,6 +47,7 @@ struct Snapshot {
    double a;
    std::string state;
    };
+
 
 using Full_Trajectory = std::vector <Snapshot>;
 
@@ -85,7 +89,7 @@ public:
 
   int m_L = 1;// used to compare if vehicles in the same lane
 
-  double m_preferred_buffer = 10; // was 6: impacts "keep lane" behavior.
+  double m_preferred_buffer = 30; // was 6: impacts "keep lane" behavior.
 
   Road m_road;
 
@@ -141,7 +145,7 @@ public:
 
   std::string display() const;
 
-  void increment(double dt);
+  void increment(int iter = 1);
 
   vector<int> state_at(int t);
 
@@ -153,6 +157,8 @@ public:
 
   void realize_constant_speed();
 
+  double max_vel_for_lane(Predictions predictions, int lane, double s);
+
   double max_accel_for_lane(Predictions predictions, int lane, double s);
 
   void realize_keep_lane(Predictions predictions);
@@ -163,7 +169,7 @@ public:
 
   Snapshot TakeSnapshot() const;
 
-  Full_Trajectory trajectory_for_state(State& state, Predictions predictions, int horizon=5);
+  Full_Trajectory trajectory_for_state(State& state, Predictions predictions, int horizon=10);
 
   //bool compare(std::pair<std::string,double> i, std::pair<std::string,double> j) ;
 
