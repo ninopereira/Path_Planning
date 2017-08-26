@@ -206,14 +206,14 @@ int main(int argc, char** argv) {
 
                 if(DEBUG){std::cout << /*" Next lane = " << lane <<*/ std::endl;}
                 double new_speed = (my_car.m_v)*TO_MILES_PER_HOUR;
-                double margin = .224/4;
-                if (new_speed>car_speed+margin && ref_vel<49.5)
+                double margin = .224;
+                if (new_speed>car_speed+margin && ref_vel<49.5 && hashit(my_car.m_state)==KL)
                 {
                     ref_vel += .224; // corresponds to 5 mph
                 }
-                else if (new_speed<car_speed-margin)
+                else if (new_speed<car_speed && hashit(my_car.m_state)==KL)
                 {
-                    ref_vel -= .224;
+                    ref_vel -= .3224; //.224
                 }
                 else
                 {

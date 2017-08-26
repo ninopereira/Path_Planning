@@ -8,12 +8,9 @@
 #include "helper_functions.h"
 
 // priority levels for costs
-#define COLLISION   10000//std::pow(10, 6)
-#define DANGER      100//std::pow(10, 5)
-#define REACH_GOAL  0//std::pow(10, 5)
-#define COMFORT     200//std::pow(10, 5)
-#define EFF_VEL     200
-#define EFF_ACCEL  0//std::pow(10, 2)
+#define COLLISION   9999.9
+#define DANGER      10
+#define COMFORT     10
 
 #define DESIRED_BUFFER 1.5 //1.5s # timesteps
 #define PLANNING_HORIZON 2
@@ -134,12 +131,12 @@ double calculate_cost(Vehicle vehicle, Predictions predictions, State state, Inf
     if ((info.gap_front - vel_diff_front < min_clearance || (info.gap_behind+vel_diff_behind)< min_clearance)
             && info.change_lane)
     {
-        colliding_cost = 9999.9;
+        colliding_cost = COLLISION;
     }
-    double changing_lane_cost = info.change_lane * 10.0;
+    double changing_lane_cost = info.change_lane * COMFORT;
 
     if (info.gap_front < min_clearance){
-        gap_front_cost+= (min_clearance-gap_front_cost)*10;
+        gap_front_cost+= (min_clearance-gap_front_cost)*DANGER;
     }
 
     cost += v_front_cost;

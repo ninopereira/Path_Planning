@@ -90,19 +90,50 @@ void Vehicle::UpdateMyCar(Road &road, int &v_id, double &x, double &y, double &s
 
 Vehicle::~Vehicle() {}
 
-// calculate cost of being in a line
+double get_angle_diff(double angle1, double angle2)
+{
+//    int multiplier = 1000;
+//    angle1 = (double)((int)(angle1*multiplier) % (360*multiplier)); // unwrap if necessary
+//    angle2 = (double)((int)(angle2*multiplier) % (360*multiplier)); // unwrap if necessary
+    double smaller;
+    double bigger;
+    if (angle1 < angle2)
+    {
+       smaller = angle1;
+       bigger = angle2;
+    }
+    else
+    {
+        smaller = angle2;
+        bigger = angle1;
+    }
+    double hipothesis1 = (bigger-smaller);
+    double hipothesis2 = ((smaller+360)-bigger);
+    return std::min(hipothesis1, hipothesis2);
+}
 
-// TODO - Implement this method.
 void Vehicle::update_state(Predictions predictions, bool DEBUG) {
-
+    static double prev_yaw = 0;
+    const int size =5;
+    static double yaw_accel[size];
+    static int it=0;
     Snapshot car_state = TakeSnapshot();
 
     State desired_state = get_next_state(predictions,DEBUG); // compute the best state
     restore_state_from_snapshot(car_state);
 
     string state = car_state.state;
+    yaw_accel[it] = get_angle_diff(prev_yaw,car_state.yaw);
+    ++it;
+    if (it>=size){it=0;}
+    double avg_yaw_accel=0;
+    for (int  i = 0; i<size ; i++)
+    {
+        avg_yaw_accel+=yaw_accel[i];
+    }
+    avg_yaw_accel = avg_yaw_accel/(double)size;
 
-    if(DEBUG){std::cout << "======================================" << state << std::endl;}
+    if(DEBUG){std::cout << "===================avg_accel=" << avg_yaw_accel << "===================" << state << std::endl;}
     // simple FSM
     switch (hashit(state)){
     case CS:
@@ -114,19 +145,21 @@ void Vehicle::update_state(Predictions predictions, bool DEBUG) {
         break;
     case KL:
         realize_state(predictions,DEBUG);
-        if(DEBUG){std::cout << "------------------------------- KL m_v = " << m_v << std::endl;}
-        if ((car_state.v > 25*TO_METERS_PER_SECOND) && (car_state.v < 45*TO_METERS_PER_SECOND))
+
+        if ((car_state.v > 25*TO_METERS_PER_SECOND) && avg_yaw_accel<0.1 && (car_state.v < 42*TO_METERS_PER_SECOND))
         {
             switch (hashit(desired_state)){
             case LCL:
                 m_state = "LCL";
                 realize_state(predictions,DEBUG);
                 m_goal_lane = m_lane;
+                m_v = car_state.v;//maintain speed
                 break;
             case LCR:
                 m_state = "LCR";
                 realize_state(predictions,DEBUG);
                 m_goal_lane = m_lane;
+                m_v = car_state.v; //maintain speed
                 break;
             default:
                 break;
@@ -162,6 +195,7 @@ void Vehicle::update_state(Predictions predictions, bool DEBUG) {
         realize_state(predictions,DEBUG);
         break;
     }
+    prev_yaw = car_state.yaw;
 }
 
 State Vehicle::get_next_state(Predictions predictions, bool DEBUG)
@@ -205,6 +239,7 @@ Snapshot Vehicle::TakeSnapshot() const
     snapshot.lane = m_lane;
     snapshot.s = m_s;
     snapshot.v = m_v;
+    snapshot.yaw = m_yaw;
     snapshot.a = m_a;
     snapshot.state = m_state;
     return snapshot;
@@ -215,6 +250,7 @@ void Vehicle::restore_state_from_snapshot(Snapshot snapshot)
     m_lane = snapshot.lane;
     m_s = snapshot.s;
     m_v = snapshot.v;
+    m_yaw = snapshot.yaw;
     m_a = snapshot.a;
     m_state = snapshot.state;
 }

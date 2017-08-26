@@ -25,6 +25,7 @@ struct Snapshot {
    int lane;
    double s;
    double v;
+   double yaw;
    double a;
    State state;
    };
