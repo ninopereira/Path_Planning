@@ -201,6 +201,9 @@ Info get_info(Vehicle vehicle, Predictions predictions, State state){
     info.v_behind = v_behind;
     info.gap_front = gap_front;
     info.gap_behind = gap_behind;
+    info.my_speed = my_v;
+    info.my_lane = my_lane;
+    info.my_s = my_s;
     return info;
 }
 
@@ -212,18 +215,25 @@ double calculate_cost(Vehicle vehicle, Predictions predictions, State state, Inf
                  " gap_behind=" << info.gap_behind /*<< std::endl*/;
     double cost = 0.0;
 
-    double min_clearance = 20;
+    double min_clearance = 12;
     double v_front_cost = vehicle.m_target_speed*TO_MILES_PER_HOUR - info.v_front;
     double v_behind_cost = 0.0;
     double gap_front_cost = -info.gap_front;
     double gap_behind_cost = 0.0;
     double colliding_cost = 0.0;
 
-    if ((info.gap_front < min_clearance || info.gap_behind < min_clearance/2) /*&& info.change_lane*/)
+    double vel_diff_front = info.my_speed - info.v_front;
+    double vel_diff_behind = info.my_speed - info.v_behind;
+    if ((info.gap_front - vel_diff_front < min_clearance || (info.gap_behind+vel_diff_behind)< min_clearance)
+            && info.change_lane)
     {
         colliding_cost = 9999.9;
     }
-    double changing_lane_cost = 0.0;//BUG info.change_lane * 10.0;
+    double changing_lane_cost = info.change_lane * 10.0;
+
+    if (info.gap_front < min_clearance){
+        gap_front_cost+= (min_clearance-gap_front_cost)*10;
+    }
 
     cost += v_front_cost;
     cost += v_behind_cost;

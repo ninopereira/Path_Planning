@@ -114,7 +114,7 @@ void Vehicle::update_state(Predictions predictions) {
     case KL:
         realize_state(predictions);
         std::cout << "------------------------------- KL m_v = " << m_v << std::endl;
-        if ((car_state.v > 30*TO_METERS_PER_SECOND) && (car_state.v < 45*TO_METERS_PER_SECOND))
+        if ((car_state.v > 25*TO_METERS_PER_SECOND) && (car_state.v < 45*TO_METERS_PER_SECOND))
         {
             switch (hashit(desired_state)){
             case LCL:

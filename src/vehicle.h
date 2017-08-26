@@ -60,6 +60,9 @@ struct Info {
         double gap_front;
         double gap_behind;
         int change_lane;
+        double my_speed;
+        double my_lane;
+        double my_s;
        };
 
 using Full_Trajectory = std::vector <Snapshot>;
