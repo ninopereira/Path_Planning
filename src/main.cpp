@@ -12,8 +12,8 @@
 
 #include "vehicle.h"
 #include "helper_functions.h"
-//#include "helper_functions.hpp"
-//#include "cost_functions.hpp"
+
+bool DEBUG = false;
 
 using namespace std;
 
@@ -40,7 +40,23 @@ string hasData(string s) {
   return "";
 }
 
-int main() {
+int main(int argc, char** argv) {
+
+    if (argc>1)
+    {
+        std::string param = argv[1];
+        if (param.compare("--debug")==0)
+        {
+            DEBUG = true;
+        }
+        else
+        {
+            std::cout << "Usage: ./pathplannig [--debug]" << std::endl;
+            return 0;
+        }
+
+    }
+
   uWS::Hub h;
 
   // Load up map values for waypoint's x,y,s and d normalized normal vectors
@@ -94,12 +110,14 @@ int main() {
   road.maps_y = map_waypoints_y;
 
   Vehicle my_car;
+
  double prev_vel = ref_vel;
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
               &map_waypoints_dx,&map_waypoints_dy, &lane, &ref_vel, &prev_vel,
               &my_car, &road]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
+      std::cout << "." << std::flush;
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
@@ -153,7 +171,6 @@ int main() {
                 // Build Predictions map from sensor_fusion -  see Road advance
                 Predictions predictions;
                 // sensor_fusion = {id, x, y, vx, vy, s, d}
-                int unique_key = 0;
                 double horizon = 10;
                 double time_interval = 0.1; // horizon of 1 second in total
                 // The first prediction will always be our own car
@@ -163,7 +180,6 @@ int main() {
                 Prediction prediction = std::make_tuple(v_id,snapshot,trajectory);
                 predictions.push_back(prediction);
 
-                ++unique_key;
                 for (int i = 0; i < sensor_fusion.size(); i++)
                 {
                         int v_id = sensor_fusion[i][0];
@@ -186,10 +202,9 @@ int main() {
                 /////////////////////////////////////////////////////////////////////////////
                 // Update state of my vehicle - see get_next_state vehicle.cpp
                 lane = my_car.m_lane;
-                my_car.update_state(predictions);
-//                my_car.increment(5);
+                my_car.update_state(predictions,DEBUG);
 
-                std::cout << /*" Next lane = " << lane <<*/ std::endl;
+                if(DEBUG){std::cout << /*" Next lane = " << lane <<*/ std::endl;}
                 double new_speed = (my_car.m_v)*TO_MILES_PER_HOUR;
                 double margin = .224/4;
                 if (new_speed>car_speed+margin && ref_vel<49.5)
@@ -205,67 +220,11 @@ int main() {
                     ref_vel = prev_vel;
                 }
                 prev_vel = ref_vel;
-                /////////////////////////////////////////////////////////////////////////////
-                // Get data from sensor_fusion
-//                if (prev_size > 0)
-//                {
-//                        car_s = end_path_s;
-//                }
-//                bool too_close = false;
-
-//                // find ref_v to use
-//                for (int i = 0; i < sensor_fusion.size(); i++)
-//                {
-//                        float d = sensor_fusion[i][6];
-//                        // if car is in my lane
-//                        if ((d < (2+4*lane+2)) && (d >(2+4*lane-2)))
-//                        {
-//                                double vx = sensor_fusion[i][3];
-//                                double vy = sensor_fusion[i][4];
-//                                double check_speed = sqrt(vx*vx+vy*vy);
-//                                double check_car_s = sensor_fusion[i][5];
-//                                // predict where this car will be in the future
-//                                check_car_s += (double)prev_size*.02*check_speed;
-
-//                                // check s values greater than mine and s gap
-//                                const double min_distance = 30;
-//                                // if car is too close
-//                                if ((check_car_s>car_s) && ((check_car_s-car_s) < min_distance))
-//                                {
-//                                        too_close = true;
-//                                        std::cout << "Too close!" << std::endl;
-//                                        lane = my_car.m_lane;
-////                                        ref_vel = (my_car.m_v)*TO_MILES_PER_HOUR *0.8;
-//                                }
-//                        }
-//                }
-                int smoother = 0;
-                if (my_car.m_lane == lane)
-                {
-                    // same lane, no worries
-                }
-                else if (my_car.m_lane > lane)
-                {
-                    smoother = -1;
-                            // moving Right
-                }
-                else if (my_car.m_lane < lane)
-                {
-                    smoother = 1;// moving Left
-                }
                 lane = my_car.m_lane;
-// 1 mph is 0.44704 m/s
-                std::cout << "my_car.m_lane = " << my_car.m_lane <<" Lane " << lane << " ref_vel = " << ref_vel << std::endl;
-//                if (too_close)
-//                {
-//                        ref_vel -= .224; // corresponds to 5 mph
-//                }
-//                else if (ref_vel < 49.5)
-//                {
-//                        ref_vel += .224;
-//                }
 
+                if (DEBUG){std::cout << "my_car.m_lane = " << my_car.m_lane <<" Lane " << lane << " ref_vel = " << ref_vel << std::endl;}
 
+                /////////////////////////////////////////////////////////////////////////////
                 if(ref_vel<0.001)
                 {
                     ref_vel = .224;
@@ -424,6 +383,7 @@ int main() {
 
   h.onConnection([&h](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
     std::cout << "Connected!!!" << std::endl;
+    std::cout << "Running" << std::flush;
   });
 
   h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> ws, int code,
