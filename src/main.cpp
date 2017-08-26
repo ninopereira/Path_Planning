@@ -187,7 +187,7 @@ int main() {
                 // Update state of my vehicle - see get_next_state vehicle.cpp
                 lane = my_car.m_lane;
                 my_car.update_state(predictions);
-                my_car.increment(5);
+//                my_car.increment(5);
 
                 std::cout << /*" Next lane = " << lane <<*/ std::endl;
                 double new_speed = (my_car.m_v)*TO_MILES_PER_HOUR;
@@ -239,7 +239,21 @@ int main() {
 //                                }
 //                        }
 //                }
-lane = my_car.m_lane;
+                int smoother = 0;
+                if (my_car.m_lane == lane)
+                {
+                    // same lane, no worries
+                }
+                else if (my_car.m_lane > lane)
+                {
+                    smoother = -1;
+                            // moving Right
+                }
+                else if (my_car.m_lane < lane)
+                {
+                    smoother = 1;// moving Left
+                }
+                lane = my_car.m_lane;
 // 1 mph is 0.44704 m/s
                 std::cout << "my_car.m_lane = " << my_car.m_lane <<" Lane " << lane << " ref_vel = " << ref_vel << std::endl;
 //                if (too_close)
@@ -266,7 +280,7 @@ lane = my_car.m_lane;
                 double ref_yaw = deg2rad(car_yaw);
 
                 // if previous size is almost empty, use the car as starting reference
-                if(prev_size<2)
+                if(prev_size<5) // was 2
                 {
                     //Use two points that make the path tangent to the car
                     double prev_car_x = car_x - cos(car_yaw);
@@ -300,10 +314,11 @@ lane = my_car.m_lane;
 
                 }
 
+
                 // In Frenet add evenly 30m spaced points ahead of the starting reference
-                vector<double> next_wp0 = getXY(car_s+30,(2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-                vector<double> next_wp1 = getXY(car_s+60,(2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-                vector<double> next_wp2 = getXY(car_s+90,(2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                vector<double> next_wp0 = getXY(car_s+40,(2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y); //30
+                vector<double> next_wp1 = getXY(car_s+65,(2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y); //60
+                vector<double> next_wp2 = getXY(car_s+90,(2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y); //90
 
                 ptsx.push_back(next_wp0[0]);
                 ptsx.push_back(next_wp1[0]);
@@ -352,7 +367,7 @@ lane = my_car.m_lane;
                 //Fill out the rest of our path planner after filling it with previous points, here we will always output 50 points
                 for (int i = 1; i<= 50-previous_path_x.size(); i++)
                 {
-                    double N = target_dist/(.02*ref_vel/2.24); //2.24 to convert from mph to meters/s
+                    double N = target_dist/(.02*ref_vel*TO_METERS_PER_SECOND); //2.24 to convert from mph to meters/s
                     double x_point = x_add_on+target_x/N;
                     double y_point = s(x_point);
 

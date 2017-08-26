@@ -114,9 +114,9 @@ double buffer_cost(Vehicle vehicle, Full_Trajectory trajectory, Predictions pred
 TrajectoryData get_helper_data(Vehicle vehicle, Full_Trajectory trajectory, Predictions predictions, State state); // forward declaration
 
 
-NewTrajectoryData get_relevant_data(Vehicle vehicle, Predictions predictions, State state){
+Info get_info(Vehicle vehicle, Predictions predictions, State state){
 
-    NewTrajectoryData relevant_data;
+    Info info;
 
     double my_lane = 0;
     double my_s = 0;
@@ -124,10 +124,10 @@ NewTrajectoryData get_relevant_data(Vehicle vehicle, Predictions predictions, St
     double my_a = 0;
     State my_state = "KL";
 
-    double v_front = 9999;
-    double v_behind = 9999;
-    double gap_front = 9999;
-    double gap_behind = 9999;
+    double v_front = 100;
+    double v_behind = 100;
+    double gap_front = 100;
+    double gap_behind = 100;
 
     double ev_lane = 0; // lane being evaluated
     for (Prediction& prediction : predictions)
@@ -191,41 +191,39 @@ NewTrajectoryData get_relevant_data(Vehicle vehicle, Predictions predictions, St
         }
     }
     if (ev_lane!=my_lane){
-        relevant_data.change_lane = 1;
+        info.change_lane = 1;
     }
     else
     {
-        relevant_data.change_lane = 0;
+        info.change_lane = 0;
     }
-    relevant_data.v_front = v_front;
-    relevant_data.v_behind = v_behind;
-    relevant_data.gap_front = gap_front;
-    relevant_data.gap_behind = gap_behind;
-    return relevant_data;
+    info.v_front = v_front;
+    info.v_behind = v_behind;
+    info.gap_front = gap_front;
+    info.gap_behind = gap_behind;
+    return info;
 }
 
-double calculate_cost(Vehicle vehicle, Predictions predictions, State state, bool verbose=false)
+double calculate_cost(Vehicle vehicle, Predictions predictions, State state, Info info, bool verbose=false)
 {
-    NewTrajectoryData data = get_relevant_data(vehicle, predictions, state);
-
-    std::cout << state << " - v_front=" << data.v_front <<
-                 " gap_front=" << data.gap_front <<
-                 " v_behind=" << data.v_behind <<
-                 " gap_behind=" << data.gap_behind /*<< std::endl*/;
+    std::cout << state << " - v_front=" << info.v_front <<
+                 " gap_front=" << info.gap_front <<
+                 " v_behind=" << info.v_behind <<
+                 " gap_behind=" << info.gap_behind /*<< std::endl*/;
     double cost = 0.0;
 
-    double min_change_gap = 30;
-    double v_front_cost = vehicle.m_target_speed*TO_MILES_PER_HOUR - data.v_front;
+    double min_clearance = 20;
+    double v_front_cost = vehicle.m_target_speed*TO_MILES_PER_HOUR - info.v_front;
     double v_behind_cost = 0.0;
-    double gap_front_cost = -data.gap_front;
+    double gap_front_cost = -info.gap_front;
     double gap_behind_cost = 0.0;
     double colliding_cost = 0.0;
 
-    if ((data.gap_front+data.gap_behind)<min_change_gap)
+    if ((info.gap_front < min_clearance || info.gap_behind < min_clearance/2) /*&& info.change_lane*/)
     {
         colliding_cost = 9999.9;
     }
-    double changing_lane_cost = data.change_lane * 100.0;
+    double changing_lane_cost = 0.0;//BUG info.change_lane * 10.0;
 
     cost += v_front_cost;
     cost += v_behind_cost;

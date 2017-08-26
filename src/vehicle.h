@@ -53,7 +53,7 @@ struct TrajectoryData {
        std::pair<bool,int> collides;
        };
 
-struct NewTrajectoryData {
+struct Info {
         State state;
         double v_front;
         double v_behind;
@@ -168,17 +168,17 @@ public:
 
   void realize_state(Predictions predictions);
 
-  void realize_constant_speed();
+  void realize_constant_speed(Info info);
 
   double max_vel_for_lane(Predictions predictions, int lane, double s);
 
   double max_accel_for_lane(Predictions predictions, int lane, double s);
 
-  void realize_keep_lane(Predictions predictions);
+  void realize_keep_lane(Predictions predictions,Info info );
 
-  void realize_lane_change(Predictions predictions, std::string direction);
+  void realize_lane_change(Predictions predictions, std::string direction,Info info);
 
-  void realize_prep_lane_change(Predictions predictions, std::string direction);
+  void realize_prep_lane_change(Predictions predictions, std::string direction,Info info);
 
   Snapshot TakeSnapshot() const;
 

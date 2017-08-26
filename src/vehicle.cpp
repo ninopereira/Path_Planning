@@ -113,7 +113,8 @@ void Vehicle::update_state(Predictions predictions) {
         break;
     case KL:
         realize_state(predictions);
-        if (m_v > 30*TO_METERS_PER_SECOND)// && m_v <40*TO_METERS_PER_SECOND)
+        std::cout << "------------------------------- KL m_v = " << m_v << std::endl;
+        if ((car_state.v > 30*TO_METERS_PER_SECOND) && (car_state.v < 45*TO_METERS_PER_SECOND))
         {
             switch (hashit(desired_state)){
             case LCL:
@@ -189,8 +190,8 @@ State Vehicle::get_next_state(Predictions predictions)
 
       if (DEBUG_COST){ std::cout << "| ST=" << state ;}
 //      Full_Trajectory full_trajectory = trajectory_for_state(state, predictions);
-
-      double cost = calculate_cost(*this, predictions, state);
+        Info info = get_info(*this, predictions, state);
+      double cost = calculate_cost(*this, predictions, state, info);
           costs.push_back({state, cost});
     }
 												 
@@ -304,35 +305,37 @@ void Vehicle::realize_state(Predictions predictions)
     //Given a state, realize it by adjusting acceleration and lane.
 
     string state = m_state;
+    Info info = get_info(*this, predictions, state);
+
     if(state.compare("CS") == 0)
     {
-    	realize_constant_speed();
+        realize_constant_speed(info);
     }
     else if(state.compare("KL") == 0)
     {
-    	realize_keep_lane(predictions);
+        realize_keep_lane(predictions,info);
     }
     else if(state.compare("LCL") == 0)
     {
-    	realize_lane_change(predictions, "L");
+        realize_lane_change(predictions, "L",info);
     }
     else if(state.compare("LCR") == 0)
     {
-    	realize_lane_change(predictions, "R");
+        realize_lane_change(predictions, "R",info);
     }
     else if(state.compare("PLCL") == 0)
     {
-    	realize_prep_lane_change(predictions, "L");
+        realize_prep_lane_change(predictions, "L",info);
     }
     else if(state.compare("PLCR") == 0)
     {
-    	realize_prep_lane_change(predictions, "R");
+        realize_prep_lane_change(predictions, "R",info);
     }
     increment();
 }
 
 // reviewed
-void Vehicle::realize_constant_speed()
+void Vehicle::realize_constant_speed(Info info)
 {
     m_a = 0;
 }
@@ -433,12 +436,23 @@ double Vehicle::max_accel_for_lane(Predictions predictions, int lane, double s)
 }
 
 // reviewed
-void Vehicle::realize_keep_lane(Predictions predictions) {
-    m_a = max_accel_for_lane(predictions, m_lane, m_s);
+void Vehicle::realize_keep_lane(Predictions predictions, Info info) {
+    if (info.gap_front < 30)
+    {
+        m_v = info.v_front;
+        std::cout << " Target speed = " << info.v_front;
+    }
+    else{
+
+        m_v = m_target_speed;
+    }
+    std::cout << " Desired speed = " << m_v*TO_MILES_PER_HOUR << std::endl;
+//    m_v = info.v_front + info.gap_front
+    //m_a = max_accel_for_lane(predictions, m_lane, m_s);
 }
 
 // reviewed
-void Vehicle::realize_lane_change(Predictions predictions, std::string direction) {
+void Vehicle::realize_lane_change(Predictions predictions, std::string direction,Info info) {
     int delta = 1;
     if (direction.compare("L") == 0)
     {
@@ -451,7 +465,7 @@ void Vehicle::realize_lane_change(Predictions predictions, std::string direction
 }
 
 // reviewed
-void Vehicle::realize_prep_lane_change(Predictions predictions, std::string direction)
+void Vehicle::realize_prep_lane_change(Predictions predictions, std::string direction, Info info)
 {
     int delta = -1;
     if (direction.compare("L") == 0)
