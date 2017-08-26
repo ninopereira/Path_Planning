@@ -13,7 +13,7 @@ Aditionally to this project I created a repository with a complete and improved 
 See [here|https://github.com/ninopereira/BehaviourPlanning.git].
  
 
-1. The car is able to drive more than 4.32 miles without incidents. See an example video [here|https://youtu.be/NiU1F6JWqnI].
+1. The car is able to drive more than 4.32 miles without incidents. See an example video [https://youtu.be/DLyz3R6kQgQ].
 
 Incidents include exceeding acceleration/jerk/speed, collision, and driving outside of the lanes.
 
@@ -149,7 +149,7 @@ Other smoothing functions could have been used as polynomial fitting which would
 It is worth mentioning that the Hybrid A* is not the most taylored algorithm for this particular situation. In highways we have a very sparce environment and it makes more sense to use a cost function associated with a fitting curve function. Hybrid A* works best in cluttered environments (e.g. parkinglots) where we have a limited number of choices and also in discretised spaces. 
  
 ## Video Result Example:
-[Path Planning |https://youtu.be/NiU1F6JWqnI]
+[Path Planning |https://youtu.be/DLyz3R6kQgQ]
 
 
 # Instructions
