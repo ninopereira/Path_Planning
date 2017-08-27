@@ -207,19 +207,31 @@ int main(int argc, char** argv) {
                 if(DEBUG){std::cout << /*" Next lane = " << lane <<*/ std::endl;}
                 double new_speed = (my_car.m_v)*TO_MILES_PER_HOUR;
                 double margin = .224;
-                if (new_speed>car_speed+margin && ref_vel<49.5 && hashit(my_car.m_state)==KL)
+
+                double diff_speed = fabs(new_speed-ref_vel);
+                if (new_speed>car_speed && ref_vel<49.5 && hashit(my_car.m_state)==KL)
                 {
-                    ref_vel += .224; // corresponds to 5 mph
+                    if (diff_speed>.224){
+                        ref_vel += .224; // corresponds to 5 mph // cap acceleration
+                    }
+                    else{
+                        ref_vel+=diff_speed; // smooth speed transition
+                    }
                 }
                 else if (new_speed<car_speed && hashit(my_car.m_state)==KL)
                 {
-                    ref_vel -= .3224; //.224
+                    if (diff_speed>.3224){
+                        ref_vel -= .3224; //.224 // cap acceleration
+                    }
+                    else{
+                        ref_vel-=diff_speed;// smooth speed transition
+                    }
                 }
                 else
                 {
                     ref_vel = prev_vel;
                 }
-                prev_vel = ref_vel;
+                prev_vel = ref_vel;  //save current reference for next iteration
                 lane = my_car.m_lane;
 
                 if (DEBUG){std::cout << "my_car.m_lane = " << my_car.m_lane <<" Lane " << lane << " ref_vel = " << ref_vel << std::endl;}
@@ -239,7 +251,7 @@ int main(int argc, char** argv) {
                 double ref_yaw = deg2rad(car_yaw);
 
                 // if previous size is almost empty, use the car as starting reference
-                if(prev_size<5) // was 2
+                if(prev_size<2) // was 2
                 {
                     //Use two points that make the path tangent to the car
                     double prev_car_x = car_x - cos(car_yaw);

@@ -133,7 +133,7 @@ void Vehicle::update_state(Predictions predictions, bool DEBUG) {
     }
     avg_yaw_accel = avg_yaw_accel/(double)size;
 
-    if(DEBUG){std::cout << "===================avg_accel=" << avg_yaw_accel << "===================" << state << std::endl;}
+    if(DEBUG){std::cout << "===================avg_yaw_accel=" << avg_yaw_accel << "===================" << state << std::endl;}
     // simple FSM
     switch (hashit(state)){
     case CS:
@@ -308,8 +308,10 @@ void Vehicle::realize_constant_speed(Info info)
 void Vehicle::realize_keep_lane(Predictions predictions, Info info, bool DEBUG) {
     if (info.gap_front < 30)
     {
-        m_v = info.v_front;
-        if(DEBUG){std::cout << " Target speed = " << info.v_front;}
+        // adjust speed to the car in front of me so that I keep at a distance of 10
+        double dist_diff = (info.gap_front-10);
+        m_v = info.v_front+dist_diff*0.2;
+//        if(DEBUG){std::cout << " Target speed = " << m_v;}
     }
     else{
 
