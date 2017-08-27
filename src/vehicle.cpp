@@ -311,7 +311,6 @@ void Vehicle::realize_keep_lane(Predictions predictions, Info info, bool DEBUG) 
         // adjust speed to the car in front of me so that I keep at a distance of 10
         double dist_diff = (info.gap_front-10);
         m_v = info.v_front+dist_diff*0.2;
-//        if(DEBUG){std::cout << " Target speed = " << m_v;}
     }
     else{
 
